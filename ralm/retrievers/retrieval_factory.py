@@ -4,17 +4,8 @@ def add_retriever_args(parser, retriever_type):
         parser.add_argument("--num_tokens_for_query", type=int, default=32)
         parser.add_argument("--forbidden_titles_path", type=str, default="ralm/retrievers/wikitext103_forbidden_titles.txt")
 
-    elif retriever_type == "dense":
-        parser.add_argument("--model_type", type=str, default="bert", choices=["bert", "spider"])
-        parser.add_argument("--model_name", type=str, required=True)
-        parser.add_argument("--encoded_files", type=str, required=True)
-        parser.add_argument("--corpus_path", type=str, required=True)
-        parser.add_argument("--query_seq_len", type=int, default=128)
-        parser.add_argument("--pooling", type=str, default="cls", choices=["cls", "mean"])
-        parser.add_argument("--batch_size", type=int, default=2048)
-        parser.add_argument("--fp16", action="store_true")
-        parser.add_argument("--forbidden_titles_path", type=str, default="ralm/retrievers/wikitext103_forbidden_titles.txt")
-
+    elif retriever_type in ["dense", "manual-dense-faiss"]:
+        parser.add_argument("--embedder_name", type=str, default="dpr", choices=["intfloat/e5-large-v2","facebook/contriever","facebook/dpr-question_encoder-multiset-base", "dpr", "bert", "spider"])
     else:
         raise ValueError
 
@@ -29,11 +20,17 @@ def get_retriever(retriever_type, args, tokenizer):
             num_tokens_for_query=args.num_tokens_for_query,
         )
     elif retriever_type == "dense":
-        raise ValueError("We currently don't support dense retrieval, we will soon add this option.")
         from ralm.retrievers.dense_retrieval import DenseRetriever
         return DenseRetriever(
             tokenizer=tokenizer,
+            index_name=args.index_name,
             args=args,
-            forbidden_titles_path=args.forbidden_titles_path,
+        )
+    elif retriever_type == "manual-dense-faiss":
+        from ralm.retrievers.manual_dense_retrieval_faiss import DenseRetriever
+        return DenseRetriever(
+            tokenizer=tokenizer,
+            index_name=args.index_name,
+            args=args,
         )
     raise ValueError

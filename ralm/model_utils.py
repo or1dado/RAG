@@ -1,15 +1,17 @@
 import torch
+torch.cuda.empty_cache()
+
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer
 from huggingface_hub import login
 
 
 def load_tokenizer(model_name):
-    if "llama" in model_name:
-        return LlamaTokenizer.from_pretrained(model_name)
-    return AutoTokenizer.from_pretrained(model_name)
+    # if "llama" in model_name:
+    #     return LlamaTokenizer.from_pretrained(model_name, legacy=False)
+    return AutoTokenizer.from_pretrained(model_name, padding_side="left")
 
 
-def load_model_and_tokenizer(model_name, model_parallelism=False, cache_dir=None, auth_token=None):
+def load_model_and_tokenizer(model_name, model_parallelism=False, cache_dir=None, auth_token=None, temperature=None, top_p=None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     device_count = torch.cuda.device_count()
 
@@ -24,11 +26,17 @@ def load_model_and_tokenizer(model_name, model_parallelism=False, cache_dir=None
         model_args["torch_dtype"] = config.torch_dtype
     if auth_token is not None:
         model_args["use_auth_token"] = auth_token
+    if temperature is not None:
+        model_args["temperature"] = temperature
+    if top_p is not None:
+        model_args["top_p"] = top_p
 
     model = AutoModelForCausalLM.from_pretrained(model_name, **model_args).eval()
     if not model_parallelism:
         model = model.to(device)
     tokenizer = load_tokenizer(model_name)
+
+    tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token  # fallback
 
     if device_count > 1 and not model_parallelism:
         model = torch.nn.DataParallel(model)
